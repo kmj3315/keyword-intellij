@@ -31,8 +31,6 @@ public class TestMemberService {
 	//id 찾기 -> findById(고정)
 	public TestMemberVo findById(int no){
 		Optional<TestMemberVo> testVo = testRepository.findById(no);
-		logger.debug("main >> findById excute!!");
-		
 		return testVo.get();
 	}
 	//where 들어갈 경우 fnidBy <--칼럼명
