@@ -28,14 +28,12 @@ public class HttpConnection {
             throw new NullPointerException();
         }
 
-        logger.info(httpConnVo.toString());
         String url = httpConnVo.getUrl();
         String referrer = httpConnVo.getReferrer();
         Map<String, String> header = httpConnVo.getHeader();
         Map<String, String> param = httpConnVo.getParam();
         String method = httpConnVo.getMethod();
         boolean isContentType = httpConnVo.isContentType();
-
 
         if(StringUtils.isEmpty(url)) {
             logger.error("URL 값이 없습니다. : " + url);

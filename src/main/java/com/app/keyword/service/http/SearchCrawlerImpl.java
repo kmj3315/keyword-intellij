@@ -4,6 +4,7 @@ import com.app.keyword.vo.http.HttpConnVo;
 import lombok.ToString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -22,12 +23,14 @@ public class SearchCrawlerImpl {
 
     HttpConnVo httpConnVo;
 
-    public SearchCrawlerImpl(){
+
+    public void setup(){
         httpConnVo = new HttpConnVo();
         httpConnVo.setHeader(this.getHeader());
         httpConnVo.setMethod(this.method);
         httpConnVo.setReferrer(this.referrer);
         httpConnVo.setUrl(this.url);
+        httpConnVo.setContentType(this.isContenType);
     }
 
     @Value("${SEARCH_URL}")
@@ -60,9 +63,10 @@ public class SearchCrawlerImpl {
 
         String timeStamp = String.valueOf(new Date().getTime());
         String text = timeStamp + "." + method + "." + context;
-        String signature = base64sha256(SEARCH_CERTKEY, text);
+        String signature = base64sha256(text,SEARCH_CERTKEY);
 
         header = new HashMap<String, String>();
+        header.put("X-Timestamp", timeStamp);
         header.put("X-API-KEY", SEARCH_LICENSE);
         header.put("X-Customer", SEARCH_CUSTOMER_ID);
         header.put("X-Signature", signature);
