@@ -1,7 +1,14 @@
-package com.app.keyword.service.http;
+package com.app.keyword.service.http.search;
 
+import com.app.keyword.repository.http.search.KeywordMainRepository;
+import com.app.keyword.repository.http.search.KeywordSubRepository;
 import com.app.keyword.vo.http.HttpConnVo;
+import com.app.keyword.vo.http.search.KeywordMainVo;
+import com.app.keyword.vo.http.search.KeywordSubVo;
 import lombok.ToString;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,28 +17,22 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import java.util.Base64;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @ToString
 @Component
-public class SearchCrawlerImpl {
+public class KeywordSearchService {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     HttpConnVo httpConnVo;
 
+    @Autowired
+    private KeywordMainRepository keywordMainRepository;
 
-    public void setup(){
-        httpConnVo = new HttpConnVo();
-        httpConnVo.setHeader(this.getHeader());
-        httpConnVo.setMethod(this.method);
-        httpConnVo.setReferrer(this.referrer);
-        httpConnVo.setUrl(this.url);
-        httpConnVo.setContentType(this.isContenType);
-    }
+    @Autowired
+    private KeywordSubRepository keywordSubRepository;
+
 
     @Value("${SEARCH_URL}")
     private String url;
@@ -53,11 +54,23 @@ public class SearchCrawlerImpl {
 
 
     public HttpConnVo search(String paramName){
+        httpConnVo = new HttpConnVo();
+        httpConnVo.setHeader(this.getHeader());
+        httpConnVo.setMethod(this.method);
+        httpConnVo.setReferrer(this.referrer);
+        httpConnVo.setUrl(this.url);
+        httpConnVo.setContentType(this.isContenType);
+
         Map<String, String> param = new HashMap<String, String>();
         param.put("hintKeywords", paramName);
         httpConnVo.setParam(param);
         return httpConnVo;
     }
+
+
+
+
+
 
     public Map<String, String> getHeader() {
 
@@ -95,5 +108,49 @@ public class SearchCrawlerImpl {
         }
         return result;
     }
+
+
+    public Map<String, Object> htmlParser(Document doc) {
+        String html = doc.select("body").text();
+
+        Map<String, Object> result = new HashMap<String, Object>();
+        JSONObject jsonObject = new JSONObject(html);
+        JSONArray jsonArray = jsonObject.getJSONArray("keywordList");
+
+        String keywordNm;
+        int pcCnt;
+        int mbCnt;
+
+        KeywordMainVo km = null;
+        List<KeywordSubVo> keywordSubList = new ArrayList<KeywordSubVo>();
+
+        for (int i = 0; i < jsonArray.length(); i++) {
+            JSONObject o = jsonArray.getJSONObject(i);
+            keywordNm = (String) o.get("relKeyword");
+            pcCnt = (int) o.get("monthlyPcQcCnt");
+            mbCnt = (int) o.get("monthlyMobileQcCnt");
+            if(i == 0){
+                km = KeywordMainVo.builder()
+                        .keywordNm(keywordNm)
+                        .pcCnt(pcCnt)
+                        .mbCnt(mbCnt)
+                        .build();
+            }
+            KeywordSubVo keywordSubVo = KeywordSubVo.builder()
+                    .keywordNm(keywordNm)
+                    .pcCnt(pcCnt)
+                    .mbCnt(mbCnt)
+                    .build();
+
+            keywordSubList.add(keywordSubVo);
+
+        }
+
+        result.put("keywordSubList", keywordSubList);
+        result.put("keywordM", km);
+
+        return result;
+    }
+
 }
 
