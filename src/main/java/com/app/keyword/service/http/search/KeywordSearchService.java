@@ -46,6 +46,9 @@ public class KeywordSearchService {
     @Value("${SEARCH_CUSTOMER_ID}")
     private String SEARCH_CUSTOMER_ID;
 
+    @Value("${INSERT_TERM}")
+    private int insertTerm;
+
     private String method = "GET";
 
     boolean isContenType = true;
@@ -66,11 +69,6 @@ public class KeywordSearchService {
         httpConnVo.setParam(param);
         return httpConnVo;
     }
-
-
-
-
-
 
     public Map<String, String> getHeader() {
 
@@ -124,33 +122,73 @@ public class KeywordSearchService {
         KeywordMainVo km = null;
         List<KeywordSubVo> keywordSubList = new ArrayList<KeywordSubVo>();
 
+
+
         for (int i = 0; i < jsonArray.length(); i++) {
+            logger.debug(String.valueOf(jsonArray.getJSONObject(i)));
             JSONObject o = jsonArray.getJSONObject(i);
             keywordNm = (String) o.get("relKeyword");
-            pcCnt = (int) o.get("monthlyPcQcCnt");
-            mbCnt = (int) o.get("monthlyMobileQcCnt");
+
+            String pcCnt_1 =  o.get("monthlyPcQcCnt").toString();
+            String mbCnt_1 = o.get("monthlyMobileQcCnt").toString();
+
+            pcCnt_1 = pcCnt_1.replaceAll("<", "").trim();
+            mbCnt_1 = mbCnt_1.replaceAll("<", "").trim();
+
+            pcCnt = Integer.parseInt(pcCnt_1);
+            mbCnt = Integer.parseInt(mbCnt_1);
             if(i == 0){
                 km = KeywordMainVo.builder()
                         .keywordNm(keywordNm)
                         .pcCnt(pcCnt)
                         .mbCnt(mbCnt)
                         .build();
+            }else{
+                KeywordSubVo keywordSubVo = KeywordSubVo.builder()
+                        .keywordNm(keywordNm)
+                        .pcCnt(pcCnt)
+                        .mbCnt(mbCnt)
+                        .build();
+
+                keywordSubList.add(keywordSubVo);
             }
-            KeywordSubVo keywordSubVo = KeywordSubVo.builder()
-                    .keywordNm(keywordNm)
-                    .pcCnt(pcCnt)
-                    .mbCnt(mbCnt)
-                    .build();
-
-            keywordSubList.add(keywordSubVo);
-
         }
 
         result.put("keywordSubList", keywordSubList);
-        result.put("keywordM", km);
+        result.put("keywordMain", km);
 
         return result;
     }
 
+
+    public void insertResult(KeywordMainVo keywordM, List<KeywordSubVo> keywordSubList){
+        keywordMainRepository.save(keywordM);
+
+        for(KeywordSubVo keywordSubVo :  keywordSubList){
+            keywordSubVo.setKeywordMainSqno(keywordM.getKeywordMainSqno());
+        }
+        keywordSubRepository.saveAll(keywordSubList);
+    }
+
+    public List<KeywordMainVo> checkInsert(String keyword){
+
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.MONTH, -3);
+        Date d1 = cal.getTime();
+        Date d2 = new Date();
+        List<KeywordMainVo> keywordMains =keywordMainRepository.findByKeywordNmAndSearchDtBetween(keyword, d1, d2);
+
+        return keywordMains;
+
+    }
+
+
+    public KeywordSubVo findJob(){
+        return keywordSubRepository.findFirstByRegYnOrderBySearchTimeAsc("N");
+    }
+
+    public void saveKeywordSub(KeywordSubVo keywordSubVo){
+        keywordSubRepository.save(keywordSubVo);
+    }
 }
 

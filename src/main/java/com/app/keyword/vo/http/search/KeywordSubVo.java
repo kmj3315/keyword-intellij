@@ -20,10 +20,14 @@ public class KeywordSubVo {
     private int pcCnt;
     private int mbCnt;
     private Date searchDt;
+
     private String keywordNm;
+    private Date searchTime;
+    private String regYn;
+
 
     @ManyToOne
-    @JoinColumn(name = "keywordMSqno", insertable = false, updatable = false)
+    @JoinColumn(name = "keywordMainSqno", insertable = false, updatable = false)
     private KeywordMainVo keywordMainVo;
 
 

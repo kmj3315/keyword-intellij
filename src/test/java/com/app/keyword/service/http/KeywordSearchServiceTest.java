@@ -3,6 +3,7 @@ package com.app.keyword.service.http;
 import com.app.keyword.repository.http.search.KeywordMainRepository;
 import com.app.keyword.repository.http.search.KeywordSubRepository;
 import com.app.keyword.service.http.search.KeywordSearchService;
+import com.app.keyword.vo.http.HttpConnVo;
 import com.app.keyword.vo.http.search.KeywordMainVo;
 import com.app.keyword.vo.http.search.KeywordSubVo;
 import org.jsoup.Jsoup;
@@ -36,6 +37,8 @@ class KeywordSearchServiceTest {
     @Autowired
     KeywordSubRepository keywordSubRepository;
 
+    @Autowired
+    HttpConnection httpConnection;
 
     String html;
 
@@ -110,7 +113,39 @@ class KeywordSearchServiceTest {
         logger.info("check size : " + keywordMains.size());
         for(KeywordMainVo keywordMainVo : keywordMains)
             logger.info(keywordMainVo.toString());
+    }
 
+    @Test
+    void totalTest(){
+        String parma ="아이폰";
+        
+        //조회 할 내용 셋팅
+        HttpConnVo httpConnVo = keywordSearchService.search(parma);
+        
+        //연결 값 
+        Document doc = httpConnection.getConnection(httpConnVo);
+
+        Map<String, Object> htmlParser = keywordSearchService.htmlParser(doc);
+
+        //메인키워드값
+        KeywordMainVo keywordM = (KeywordMainVo) htmlParser.get("keywordMain");
+
+        //서브키워드
+        List<KeywordSubVo> keywordSubList = (List<KeywordSubVo>) htmlParser.get("keywordSubList");
+
+        //기존 키워드가 존재 하는지..?
+        List<KeywordMainVo> keywordMainVos = keywordSearchService.checkInsert(keywordM.getKeywordNm());
+
+        if(keywordMainVos.size() == 0){
+            keywordSearchService.insertResult(keywordM, keywordSubList);
+        }
+    }
+
+    @Test
+    void top1(){
+        KeywordSubVo firstByOrderBySearchTime = keywordSubRepository.findFirstByRegYnOrderBySearchTimeAsc("N");
+
+        logger.info(firstByOrderBySearchTime.toString());
 
     }
 }
