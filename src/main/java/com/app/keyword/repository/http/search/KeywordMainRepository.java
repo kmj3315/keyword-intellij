@@ -8,4 +8,8 @@ import java.util.List;
 
 public interface KeywordMainRepository extends JpaRepository<KeywordMainVo, Integer> {
     public List<KeywordMainVo> findByKeywordNmAndSearchDtBetween(String keywordNm, Date d1, Date d2);
+
+    KeywordMainVo findFirstByTotCntBetweenAndBlogMains_TotCntIsNullOrderBySearchTimeAsc(int totCntStart, int totCntEnd);
+
+
 }

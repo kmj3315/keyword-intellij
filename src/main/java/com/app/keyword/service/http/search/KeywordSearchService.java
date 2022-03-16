@@ -1,9 +1,12 @@
 package com.app.keyword.service.http.search;
 
 import com.app.keyword.repository.http.search.KeywordMainRepository;
+import com.app.keyword.repository.http.search.KeywordRelationRepository;
 import com.app.keyword.repository.http.search.KeywordSubRepository;
+import com.app.keyword.service.http.HttpConnection;
 import com.app.keyword.vo.http.HttpConnVo;
 import com.app.keyword.vo.http.search.KeywordMainVo;
+import com.app.keyword.vo.http.search.KeywordRelationVo;
 import com.app.keyword.vo.http.search.KeywordSubVo;
 import lombok.ToString;
 import org.json.JSONArray;
@@ -14,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -32,6 +36,13 @@ public class KeywordSearchService {
 
     @Autowired
     private KeywordSubRepository keywordSubRepository;
+
+    @Autowired
+    private KeywordRelationRepository keywordRelationRepository;
+
+    @Autowired
+    private HttpConnection httpConnection;
+
 
 
     @Value("${SEARCH_URL}")
@@ -120,9 +131,7 @@ public class KeywordSearchService {
         int mbCnt;
 
         KeywordMainVo km = null;
-        List<KeywordSubVo> keywordSubList = new ArrayList<KeywordSubVo>();
-
-
+        List<KeywordRelationVo> keywordRelList = new ArrayList<KeywordRelationVo>();
 
         for (int i = 0; i < jsonArray.length(); i++) {
             logger.debug(String.valueOf(jsonArray.getJSONObject(i)));
@@ -137,6 +146,8 @@ public class KeywordSearchService {
 
             pcCnt = Integer.parseInt(pcCnt_1);
             mbCnt = Integer.parseInt(mbCnt_1);
+
+
             if(i == 0){
                 km = KeywordMainVo.builder()
                         .keywordNm(keywordNm)
@@ -144,17 +155,18 @@ public class KeywordSearchService {
                         .mbCnt(mbCnt)
                         .build();
             }else{
-                KeywordSubVo keywordSubVo = KeywordSubVo.builder()
+                KeywordRelationVo keywordRelationVo = KeywordRelationVo.builder()
                         .keywordNm(keywordNm)
                         .pcCnt(pcCnt)
                         .mbCnt(mbCnt)
+                        .regYn("N")
                         .build();
 
-                keywordSubList.add(keywordSubVo);
+                keywordRelList.add(keywordRelationVo);
             }
         }
 
-        result.put("keywordSubList", keywordSubList);
+        result.put("keywordRelList", keywordRelList);
         result.put("keywordMain", km);
 
         return result;
@@ -170,6 +182,18 @@ public class KeywordSearchService {
         keywordSubRepository.saveAll(keywordSubList);
     }
 
+    @Transactional
+    public void insertResult2(KeywordMainVo keywordM, List<KeywordRelationVo> keywordRelList){
+        keywordMainRepository.save(keywordM);
+
+        for(KeywordRelationVo kr : keywordRelList){
+            KeywordRelationVo KeyRel = keywordRelationRepository.findByKeywordNm(kr.getKeywordNm());
+            if(KeyRel == null){
+                keywordRelationRepository.save(kr);
+            }
+        }
+    }
+
     public List<KeywordMainVo> checkInsert(String keyword){
 
         Calendar cal = Calendar.getInstance();
@@ -183,12 +207,58 @@ public class KeywordSearchService {
     }
 
 
-    public KeywordSubVo findJob(){
-        return keywordSubRepository.findFirstByRegYnOrderBySearchTimeAsc("N");
+    public KeywordRelationVo findJob(){
+        return keywordRelationRepository.findFirstByRegYnOrderByCreateDtAsc("N");
     }
 
     public void saveKeywordSub(KeywordSubVo keywordSubVo){
         keywordSubRepository.save(keywordSubVo);
     }
+
+    @Transactional
+    public void savekeywordRelation(KeywordRelationVo keywordRelationVo){
+
+        KeywordRelationVo byKeyword = keywordRelationRepository.findByKeywordNm(keywordRelationVo.getKeywordNm());
+        Date d = new Date();
+
+        byKeyword.setMbCnt(keywordRelationVo.getMbCnt());
+        byKeyword.setPcCnt(keywordRelationVo.getPcCnt());
+        byKeyword.setRegYn(keywordRelationVo.getRegYn());
+        byKeyword.setSearchDt(d);
+        byKeyword.setSearchTime(d);
+
+    }
+
+
+    public void keywordSearchProcess() throws InterruptedException {
+        logger.info("start job");
+        int jobnum = 1;
+
+        while (true){
+            logger.info("["+jobnum++ + "] start =======================================================");
+            KeywordRelationVo job = findJob();
+            logger.info(job.toString());
+
+            //조회 할 내용 셋팅
+            HttpConnVo httpConnVo = search(job.getKeywordNm());
+            //연결 값
+            Document doc = httpConnection.getConnection(httpConnVo);
+            Map<String, Object> htmlParser = htmlParser(doc);
+            //메인키워드값
+            KeywordMainVo keywordM = (KeywordMainVo) htmlParser.get("keywordMain");
+            //릴레이션 키워드
+            List<KeywordRelationVo> keywordSubList = (List<KeywordRelationVo>) htmlParser.get("keywordRelList");
+
+            insertResult2(keywordM, keywordSubList);
+
+            job.setRegYn("Y");
+            savekeywordRelation(job);
+            logger.info("["+jobnum + "] end =======================================================");
+
+            Thread.sleep(1000);
+        }
+
+    }
+
 }
 
